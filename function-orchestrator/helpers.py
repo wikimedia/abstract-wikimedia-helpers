@@ -225,8 +225,29 @@ class Helper:
         else:
             with open(self._fname, 'w') as outp:
                 outp.write(contents)
-                
 
+    def _to_benjamin(self, array):
+        the_type = 'Z1'
+        if len(array) > 0:
+            the_type = array[0]['Z1K1']
+        array.insert(0, the_type)
+
+    def _convert_arrays_to_benjamin(self, zobject):
+        if isinstance(zobject, str):
+            return
+        elif isinstance(zobject, dict):
+            for key, value in zobject.items():
+                self._convert_arrays_to_benjamin(value)
+        elif isinstance(zobject, list):
+            self._to_benjamin(zobject)
+            for sub_value in zobject:
+                self._convert_arrays_to_benjamin(sub_value)
+
+    def all_about_benjamins(self):
+        with self._test_dict_and_outp() as (test_dict, outp):
+            self._convert_arrays_to_benjamin(test_dict)
+            self._dump(test_dict, outp)
+                
 
 if __name__ == '__main__':
     import fire
