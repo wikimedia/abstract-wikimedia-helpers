@@ -63,6 +63,10 @@ def _canonicalize(zobject):
     return result
 
 
+def _Z9( ZID ):
+    return { 'Z1K1': 'Z9', 'Z9K1': ZID }
+
+
 @contextlib.contextmanager
 def get_stringio():
     outp = io.StringIO()
@@ -172,6 +176,23 @@ class Helper:
             return Z1K1.get('Z1K1') == 'Z9' and Z1K1.get('Z9K1') == 'Z10'
         return Z1K1 == 'Z10'
 
+    def _is_z7(self, Z1K1):
+        if isinstance(Z1K1, dict):
+            return Z1K1.get('Z1K1') == 'Z9' and Z1K1.get('Z9K1') == 'Z7'
+        return Z1K1 == 'Z7'
+
+    def _is_z881(self, Z1K1):
+        if isinstance(Z1K1, dict):
+            return Z1K1.get('Z1K1') == 'Z9' and Z1K1.get('Z9K1') == 'Z881'
+        return Z1K1 == 'Z881'
+
+    def _is_list_type(self, Z1K1):
+        if isinstance(Z1K1, dict):
+            return (
+                self._is_z7(Z1K1.get('Z1K1', {})) and
+                self._is_z881(Z1K1.get('Z7K1', {})))
+        return False
+
     def _replace_z10s_recursive(self, zobject):
         if not isinstance(zobject, dict):
             return zobject
@@ -190,6 +211,62 @@ class Helper:
                 result['K2'] = value
             else:
                 result[key] = value
+        return result
+
+    def _array_to_typed_list(self, the_list, the_type=None):
+        if the_type is None:
+            if the_list:
+                the_type = the_list[0]['Z1K1']
+            else:
+                the_type = { 'Z1K1': 'Z9', 'Z9K1': 'Z1' }
+        if isinstance(the_type, str):
+            the_type = _Z9(the_type)
+        list_type = {
+            'Z1K1': _Z9('Z7'),
+            'Z7K1': _Z9('Z881'),
+            'Z881K1': the_type
+        }
+        result = {
+            'Z1K1': list_type
+        }
+        if the_list:
+            result['K1'] = the_list.pop(0)
+            result['K2'] = self._array_to_typed_list(the_list, the_type)
+        return result
+
+    def _with_all_arrays_as_typed_lists(self, zobject, the_type=None):
+        if isinstance(zobject, str) or zobject is None:
+            result = zobject
+        elif isinstance(zobject, list):
+            result = self._array_to_typed_list([
+                self._with_all_arrays_as_typed_lists(element)
+                for element in zobject], the_type)
+        # elif (
+        #         self._is_z10_type(zobject.get('Z1K1', {})) or
+        #         self._is_list_type(zobject.get('Z1K1', {}))):
+        elif False:
+            result = []
+            element = zobject.get('Z10K1') or zobject.get('K1')
+            if element is not None:
+                result.append(self._with_all_arrays_as_typed_lists(element))
+            tail = zobject.get('Z10K2') or zobject.get('K2')
+            if tail is not None:
+                result.extend(self._with_all_arrays_as_typed_lists(tail))
+            result = self._array_to_typed_list(result)
+        else:
+            result = {}
+            for key, value in zobject.items():
+                if key == 'Z12K1':
+                    the_type = _Z9('Z11')
+                elif key == 'Z8K3':
+                    the_type = _Z9('Z20')
+                elif key == 'Z8K1':
+                    the_type = _Z9('Z17')
+                elif key == 'Z8K4':
+                    the_type = _Z9('Z14')
+                result[key] = self._with_all_arrays_as_typed_lists(value)
+        import logging
+        logging.error('_with_all_arrays_as_typed_lists called with %s returns %s', zobject, result)
         return result
 
     def _with_z10s_as_arrays(self, zobject):
@@ -213,6 +290,30 @@ class Helper:
             result[key] = self._with_z10s_as_arrays(value)
         return result
 
+    def _with_all_lists_as_arrays(self, zobject):
+        import logging
+        if isinstance(zobject, str) or zobject is None:
+            result = zobject
+        elif isinstance(zobject, list):
+            result = [self._with_all_lists_as_arrays(element) for element in zobject]
+        elif (
+                self._is_z10_type(zobject.get('Z1K1', {})) or
+                self._is_list_type(zobject.get('Z1K1', {}))):
+            result = []
+            element = zobject.get('Z10K1') or zobject.get('K1')
+            if element is not None:
+                result.append(self._with_all_lists_as_arrays(element))
+            tail = zobject.get('Z10K2') or zobject.get('K2')
+            if tail is not None:
+                result.extend(self._with_all_lists_as_arrays(tail))
+        else:
+            result = {}
+            for key, value in zobject.items():
+                logging.error('key, value are %s, %s', key, value)
+                result[key] = self._with_all_lists_as_arrays(value)
+        logging.error('_with_all_arrays_as_typed_lists called with %s returns %s', zobject, result)
+        return result
+
     def replace_z10s(self):
         with self._test_dict_and_outp() as (test_dict, outp):
             self._dump(self._with_z10s_as_arrays(test_dict), outp)
@@ -229,7 +330,14 @@ class Helper:
     def _to_benjamin(self, array):
         the_type = 'Z1'
         if len(array) > 0:
-            the_type = array[0]['Z1K1']
+            first_object = array[0]
+            if isinstance(first_object, str):
+                if _Z9_REGEX.search(first_object):
+                    the_type = 'Z9'
+                else:
+                    the_type = 'Z6'
+            else:
+                the_type = first_object['Z1K1']
         array.insert(0, the_type)
 
     def _convert_arrays_to_benjamin(self, zobject):
@@ -247,6 +355,19 @@ class Helper:
         with self._test_dict_and_outp() as (test_dict, outp):
             self._convert_arrays_to_benjamin(test_dict)
             self._dump(test_dict, outp)
+
+    def canonicalize_with_z10s(self):
+        with self._test_dict_and_outp() as (test_dict, outp):
+            result = _canonicalize(test_dict)
+            self._dump(result, outp)
+    
+    def replace_arrays_with_typed_lists(self):
+        with self._test_dict_and_outp() as (test_dict, outp):
+            result = self._with_all_lists_as_arrays(test_dict)
+            import logging
+            logging.error(result)
+            result = self._with_all_arrays_as_typed_lists(result)
+            self._dump(result, outp)
                 
 
 if __name__ == '__main__':
