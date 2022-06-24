@@ -252,7 +252,9 @@ class Helper:
                     the_type = _Z9('Z17')
                 elif key == 'Z8K4':
                     the_type = _Z9('Z14')
-                result[key] = self._with_all_arrays_as_typed_lists(value)
+                elif key == 'Z5K2':
+                    the_type = _Z9('Z5')
+                result[key] = self._with_all_arrays_as_typed_lists(value, the_type)
         return result
 
     def _with_z10s_as_arrays(self, zobject):
