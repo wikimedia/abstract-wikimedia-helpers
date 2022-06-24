@@ -241,18 +241,6 @@ class Helper:
             result = self._array_to_typed_list([
                 self._with_all_arrays_as_typed_lists(element)
                 for element in zobject], the_type)
-        # elif (
-        #         self._is_z10_type(zobject.get('Z1K1', {})) or
-        #         self._is_list_type(zobject.get('Z1K1', {}))):
-        elif False:
-            result = []
-            element = zobject.get('Z10K1') or zobject.get('K1')
-            if element is not None:
-                result.append(self._with_all_arrays_as_typed_lists(element))
-            tail = zobject.get('Z10K2') or zobject.get('K2')
-            if tail is not None:
-                result.extend(self._with_all_arrays_as_typed_lists(tail))
-            result = self._array_to_typed_list(result)
         else:
             result = {}
             for key, value in zobject.items():
@@ -265,8 +253,6 @@ class Helper:
                 elif key == 'Z8K4':
                     the_type = _Z9('Z14')
                 result[key] = self._with_all_arrays_as_typed_lists(value)
-        import logging
-        logging.error('_with_all_arrays_as_typed_lists called with %s returns %s', zobject, result)
         return result
 
     def _with_z10s_as_arrays(self, zobject):
@@ -291,7 +277,6 @@ class Helper:
         return result
 
     def _with_all_lists_as_arrays(self, zobject):
-        import logging
         if isinstance(zobject, str) or zobject is None:
             result = zobject
         elif isinstance(zobject, list):
@@ -309,9 +294,7 @@ class Helper:
         else:
             result = {}
             for key, value in zobject.items():
-                logging.error('key, value are %s, %s', key, value)
                 result[key] = self._with_all_lists_as_arrays(value)
-        logging.error('_with_all_arrays_as_typed_lists called with %s returns %s', zobject, result)
         return result
 
     def replace_z10s(self):
@@ -364,8 +347,6 @@ class Helper:
     def replace_arrays_with_typed_lists(self):
         with self._test_dict_and_outp() as (test_dict, outp):
             result = self._with_all_lists_as_arrays(test_dict)
-            import logging
-            logging.error(result)
             result = self._with_all_arrays_as_typed_lists(result)
             self._dump(result, outp)
                 
